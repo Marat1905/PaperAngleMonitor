@@ -4,9 +4,88 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PaperAngleMonitor.Views"
+        xmlns:converters="clr-namespace:PaperAngleMonitor.Converters"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
-        
+        Title="Монитор угла бумаги – Basler acA1300-60gm" 
+        Height="720" Width="1280"
+        WindowStartupLocation="CenterScreen">
+    <Window.Resources>
+        <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+        <converters:BooleanToNotConverter x:Key="BooleanToNotConverter"/>
+    </Window.Resources>
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Заголовок -->
+        <TextBlock Grid.Row="0" Text="Basler acA1300-60gm (монохромная)" 
+                   FontSize="20" FontWeight="Bold" Margin="0,0,0,10"
+                   HorizontalAlignment="Center"/>
+
+        <!-- Основная область: видео + панель управления -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="350"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Видеопоток -->
+            <Border Grid.Column="0" 
+         BorderBrush="#FFCCCCCC" 
+         BorderThickness="1" 
+         Margin="10"
+         Background="#FF2D2D30">
+                <Grid>
+                    <Image Source="{Binding CurrentFrame}" 
+                Stretch="Uniform"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"/>
+
+                    <!-- Overlay when no video -->
+                    <Border Background="#80000000" 
+                 Visibility="{Binding CurrentFrame, Converter={StaticResource NullToVisibilityConverter}}"
+                 HorizontalAlignment="Stretch"
+                 VerticalAlignment="Stretch">
+                        <TextBlock Text="No video signal" 
+                        Foreground="White"
+                        FontSize="16"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"/>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Панель настроек -->
+            <ScrollViewer Grid.Column="1" Margin="10,0,0,0" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <!-- Состояние подключения -->
+                    <GroupBox Header="Подключение" Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Button Content="Старт" 
+                                Command="{Binding StartMonitoringCommand}"
+                                Background="#FF4CAF50"
+                                Foreground="White"
+                                IsEnabled="{Binding IsMonitoring, Converter={StaticResource BooleanToNotConverter}}"/>
+
+                            <Button Content="Стоп" 
+                                Command="{Binding StopMonitoringCommand}"
+                                Background="#FFF44336"
+                                Foreground="White"
+                                IsEnabled="{Binding IsMonitoring}"/>
+                        </StackPanel>
+                    </GroupBox>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- Нижняя строка статуса -->
+        <StatusBar Grid.Row="2" Margin="0,10,0,0">
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusBarText}"/>
+            </StatusBarItem>
+        </StatusBar>
     </Grid>
 </Window>

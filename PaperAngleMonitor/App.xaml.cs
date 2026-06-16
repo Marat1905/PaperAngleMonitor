@@ -41,6 +41,8 @@ namespace PaperAngleMonitor
                     });
 
                     services.AddSingleton<IVideoService, BaslerVideoService>();
+                    services.AddSingleton<System.Windows.Threading.Dispatcher>(provider =>
+                       Application.Current.Dispatcher);
                     services.AddTransient<MainViewModel>();
                     services.AddTransient<MainWindow>();
                 })

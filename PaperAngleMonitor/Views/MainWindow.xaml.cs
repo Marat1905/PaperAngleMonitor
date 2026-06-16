@@ -3,9 +3,6 @@ using System.Windows;
 
 namespace PaperAngleMonitor.Views
 {
-    /// <summary>
-    /// Логика взаимодействия для MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
     {
         private readonly MainViewModel _viewModel;
@@ -14,6 +11,13 @@ namespace PaperAngleMonitor.Views
         {
             InitializeComponent();
             _viewModel = viewModel;
+            DataContext = _viewModel;
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+            _viewModel.Dispose();
         }
     }
 }
