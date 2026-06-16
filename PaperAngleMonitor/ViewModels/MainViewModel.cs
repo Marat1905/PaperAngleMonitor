@@ -53,6 +53,17 @@ namespace PaperAngleMonitor.ViewModels
             }
         }
 
+        private double _currentFps;
+        public double CurrentFps
+        {
+            get => _currentFps;
+            set
+            {
+                _currentFps = value;
+                OnPropertyChanged();
+            }
+        }
+
         public ICommand StartMonitoringCommand { get; }
         public ICommand StopMonitoringCommand { get; }
         public MainViewModel(ILogger<MainViewModel> logger, IVideoService videoService, Dispatcher dispatcher)
@@ -90,7 +101,7 @@ namespace PaperAngleMonitor.ViewModels
                             _logger.LogWarning(ex, "Primary conversion failed, using alternative method");
                             bitmapSource = Converters.BitmapSourceConverter.ToBitmapSourceAlternative(frameClone);
                         }
-
+                        CurrentFps = _videoService.CurrentFps;
                         CurrentFrame = bitmapSource;
                         //_logger.LogInformation($"Видео передается в потоке: {Thread.CurrentThread.ManagedThreadId}");
                     });

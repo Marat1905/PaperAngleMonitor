@@ -4,10 +4,11 @@ using OpenCvSharp;
 using System.Text;
 using PaperAngleMonitor.Models;
 
-
 namespace PaperAngleMonitor.Services
 {
-
+    /// <summary>
+    /// Реализация IVideoService для камер Basler на базе Pylon .NET SDK.
+    /// </summary>
     public class BaslerVideoService : IVideoService
     {
         private readonly ILogger<BaslerVideoService> _logger;
@@ -129,13 +130,12 @@ namespace PaperAngleMonitor.Services
 
                 // Настройка формата пикселей
                 _camera.Parameters[PLCamera.PixelFormat].SetValue(settings.PixelFormat);
-
-
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to apply camera settings");
+                _logger.LogError(ex, "Failed to apply camera settings (size/format)");
             }
+
             try
             {
                 // Настройка экспозиции
@@ -166,46 +166,12 @@ namespace PaperAngleMonitor.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to apply camera settings");
+                _logger.LogError(ex, "Failed to apply camera settings (exposure/gain/fps)");
                 throw;
             }
         }
 
-        public (double Min, double Max) GetExposureRange()
-        {
-            if (_camera == null || !_camera.IsConnected)
-                throw new InvalidOperationException("Camera not connected");
-
-            try
-            {
-                var param = _camera.Parameters[PLCamera.ExposureTimeAbs];
-                return (param.GetMinimum(), param.GetMaximum());
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to get exposure range");
-                throw;
-            }
-        }
-
-        public (double Min, double Max) GetGainRange()
-        {
-            if (_camera == null || !_camera.IsConnected)
-                throw new InvalidOperationException("Camera not connected");
-
-            try
-            {
-                var param = _camera.Parameters[PLCamera.GainRaw];
-                return (param.GetMinimum(), param.GetMaximum());
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to get gain range");
-                throw;
-            }
-        }
-
-        public (double Min, double Max) GetFrameRateRange()
+        public (double Min, double Max, double Current) GetFrameRateRange()
         {
             if (_camera == null || !_camera.IsConnected)
                 throw new InvalidOperationException("Camera not connected");
@@ -213,7 +179,7 @@ namespace PaperAngleMonitor.Services
             try
             {
                 var param = _camera.Parameters[PLCamera.AcquisitionFrameRateAbs];
-                return (param.GetMinimum(), param.GetMaximum());
+                return (param.GetMinimum(), param.GetMaximum(), param.GetValue());
             }
             catch (Exception ex)
             {
@@ -375,6 +341,192 @@ namespace PaperAngleMonitor.Services
                 _logger.LogError(ex, "Error processing Basler camera frame");
             }
         }
+
+        #region Настройки с возвратом текущего значения
+
+        public (int Min, int Max, int Current) GetWidthRange()
+        {
+            if (_camera == null || !_camera.IsConnected)
+                throw new InvalidOperationException("Camera not connected");
+
+            try
+            {
+                var param = _camera.Parameters[PLCamera.Width];
+                return ((int)param.GetMinimum(), (int)param.GetMaximum(), (int)param.GetValue());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get width range");
+                throw;
+            }
+        }
+
+        public (int Min, int Max, int Current) GetHeightRange()
+        {
+            if (_camera == null || !_camera.IsConnected)
+                throw new InvalidOperationException("Camera not connected");
+
+            try
+            {
+                var param = _camera.Parameters[PLCamera.Height];
+                return ((int)param.GetMinimum(), (int)param.GetMaximum(), (int)param.GetValue());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get height range");
+                throw;
+            }
+        }
+
+        public (List<string> SupportedFormats, string CurrentFormat) GetSupportedPixelFormats()
+        {
+            if (_camera == null || !_camera.IsConnected)
+                throw new InvalidOperationException("Camera not connected");
+
+            try
+            {
+                var param = _camera.Parameters[PLCamera.PixelFormat];
+                // Получаем все возможные значения (это может быть массив строк или объектов)
+                var allValues = param.GetAllValues(); // предположим, возвращает object[]
+                var supported = new List<string>();
+                var currentValue = param.GetValue(); // запоминаем текущий формат
+
+                foreach (var value in allValues)
+                {
+                    try
+                    {
+                        // Пытаемся установить значение
+                        param.SetValue(value);
+                        // Если исключения не было – формат поддерживается
+                        supported.Add(value.ToString());
+                    }
+                    catch
+                    {
+                        // Если возникла ошибка – пропускаем
+                    }
+                }
+
+                // Возвращаем исходный формат
+                param.SetValue(currentValue);
+
+                return (supported, currentValue.ToString());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get supported pixel formats");
+                throw;
+            }
+        }
+
+        public (double Min, double Max, double Current) GetExposureRange()
+        {
+            if (_camera == null || !_camera.IsConnected)
+                throw new InvalidOperationException("Camera not connected");
+
+            try
+            {
+                var param = _camera.Parameters[PLCamera.ExposureTimeAbs];
+                return (param.GetMinimum(), param.GetMaximum(), param.GetValue());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get exposure range");
+                throw;
+            }
+        }
+
+        public (double Min, double Max, double Current) GetGainRange()
+        {
+            if (_camera == null || !_camera.IsConnected)
+                throw new InvalidOperationException("Camera not connected");
+
+            try
+            {
+                var param = _camera.Parameters[PLCamera.GainRaw];
+                return (param.GetMinimum(), param.GetMaximum(), param.GetValue());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get gain range");
+                throw;
+            }
+        }
+
+        #endregion
+
+        #region Новые методы для авторежимов и управления частотой кадров
+
+        /// <summary>
+        /// Возвращает список поддерживаемых режимов автоматической экспозиции и текущий режим.
+        /// </summary>
+        /// <returns>Кортеж: список режимов (строки) и текущий режим.</returns>
+        /// <exception cref="InvalidOperationException">Если камера не подключена.</exception>
+        public (List<string> SupportedModes, string CurrentMode) GetExposureAutoModes()
+        {
+            if (_camera == null || !_camera.IsConnected)
+                throw new InvalidOperationException("Camera not connected");
+
+            try
+            {
+                var param = _camera.Parameters[PLCamera.ExposureAuto];
+                // GetSymbolics() возвращает IList<string> всех допустимых символьных имён для перечисляемого параметра
+                var supported = param.GetAllValues().ToList();
+                var current = param.GetValue().ToString(); // или param.GetSymbolic()
+                return (supported, current);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get exposure auto modes");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Возвращает список поддерживаемых режимов автоматического усиления и текущий режим.
+        /// </summary>
+        /// <returns>Кортеж: список режимов (строки) и текущий режим.</returns>
+        /// <exception cref="InvalidOperationException">Если камера не подключена.</exception>
+        public (List<string> SupportedModes, string CurrentMode) GetGainAutoModes()
+        {
+            if (_camera == null || !_camera.IsConnected)
+                throw new InvalidOperationException("Camera not connected");
+
+            try
+            {
+                var param = _camera.Parameters[PLCamera.GainAuto];
+                var supported = param.GetAllValues().ToList();
+                var current = param.GetValue().ToString();
+                return (supported, current);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get gain auto modes");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Возвращает текущее состояние флага включения управления частотой кадров.
+        /// </summary>
+        /// <returns>True – управление частотой кадров включено, False – выключено.</returns>
+        /// <exception cref="InvalidOperationException">Если камера не подключена.</exception>
+        public bool GetAcquisitionFrameRateEnable()
+        {
+            if (_camera == null || !_camera.IsConnected)
+                throw new InvalidOperationException("Camera not connected");
+
+            try
+            {
+                return _camera.Parameters[PLCamera.AcquisitionFrameRateEnable].GetValue();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get acquisition frame rate enable state");
+                throw;
+            }
+        }
+
+        #endregion
 
         public void Dispose()
         {
