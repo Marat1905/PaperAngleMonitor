@@ -96,7 +96,7 @@ namespace PaperAngleMonitor.Services
                 _camera.Parameters[PLCamera.BalanceWhiteAuto].SetValue(PLCamera.BalanceWhiteAuto.Once);
 
                 // Формат пикселей
-                _camera.Parameters[PLCamera.PixelFormat].SetValue(PLCamera.PixelFormat.BGR8);
+                _camera.Parameters[PLCamera.PixelFormat].SetValue(PLCamera.PixelFormat.Mono8);
 
                 // Настройка размера изображения (максимальный)
                 _camera.Parameters[PLCamera.Width].SetValue(_camera.Parameters[PLCamera.Width].GetMaximum());
