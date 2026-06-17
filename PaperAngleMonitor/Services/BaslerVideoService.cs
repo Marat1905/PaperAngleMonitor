@@ -19,6 +19,9 @@ namespace PaperAngleMonitor.Services
         private DateTime _lastFpsUpdate;
         private double _currentFps;
 
+        // Кэш поддерживаемых форматов пикселей, заполняется при подключении
+        private List<string>? _cachedPixelFormats;
+
         public event Action<Mat>? FrameReady;
         public bool IsConnected => _camera?.IsConnected == true;
         public double CurrentFps => _currentFps;
@@ -69,6 +72,9 @@ namespace PaperAngleMonitor.Services
                 // Настройка параметров камеры
                 ConfigureCameraSettings();
 
+                // Кэширование поддерживаемых форматов пикселей (один раз при подключении)
+                _cachedPixelFormats = GetSupportedPixelFormatsInternal();
+
                 return true;
             }
             catch (Exception ex)
@@ -91,7 +97,6 @@ namespace PaperAngleMonitor.Services
                 // Базовые настройки
                 //_camera.Parameters[PLCamera.AcquisitionMode].SetValue(PLCamera.AcquisitionMode.Continuous);
 
-
                 // Автоматические настройки для начала
                 //падает fps при больших значениях
                 //_camera.Parameters[PLCamera.ExposureAuto].SetValue(PLCamera.ExposureAuto.Once);
@@ -99,15 +104,15 @@ namespace PaperAngleMonitor.Services
                 _camera.Parameters[PLCamera.ExposureAuto].SetValue(PLCamera.ExposureAuto.Off);
                 _camera.Parameters[PLCamera.ExposureTimeAbs].SetValue(16000.0);
 
-                _camera.Parameters[PLCamera.GainAuto].SetValue(PLCamera.GainAuto.Continuous);
+                _camera.Parameters[PLCamera.GainAuto].SetValue(PLCamera.GainAuto.Once);
                 _camera.Parameters[PLCamera.GainSelector].SetValue(PLCamera.GainSelector.All);
 
                 // Формат пикселей
                 _camera.Parameters[PLCamera.PixelFormat].SetValue(PLCamera.PixelFormat.Mono8);
 
                 // Настройка размера изображения (максимальный)
-                _camera.Parameters[PLCamera.Width].SetValue(_camera.Parameters[PLCamera.Width].GetMaximum());
-                _camera.Parameters[PLCamera.Height].SetValue(_camera.Parameters[PLCamera.Height].GetMaximum());
+                _camera.Parameters[PLCamera.Width].SetValue(_settings.Width);
+                _camera.Parameters[PLCamera.Height].SetValue(_settings.Height);
 
                 _logger.LogInformation("Camera configured successfully");
 
@@ -130,14 +135,24 @@ namespace PaperAngleMonitor.Services
             try
             {
                 // Настройка размера изображения
-                if (settings.Width > 0 && settings.Height > 0)
+                if (_camera.Parameters[PLCamera.Width].IsWritable && _camera.Parameters[PLCamera.Height].IsWritable)
                 {
-                    _camera.Parameters[PLCamera.Width].SetValue(settings.Width);
-                    _camera.Parameters[PLCamera.Height].SetValue(settings.Height);
+                    if (settings.Width == 0 && settings.Height == 0)
+                    {
+                        _camera.Parameters[PLCamera.Width].SetValue(_camera.Parameters[PLCamera.Width].GetMaximum());
+                        _camera.Parameters[PLCamera.Height].SetValue(_camera.Parameters[PLCamera.Height].GetMaximum());
+                    }
+                    else
+                    {
+                        _camera.Parameters[PLCamera.Width].SetValue(settings.Width);
+                        _camera.Parameters[PLCamera.Height].SetValue(settings.Height);
+                    }
                 }
-
+               
+               
                 // Настройка формата пикселей
-                _camera.Parameters[PLCamera.PixelFormat].SetValue(settings.PixelFormat);
+                if(_camera.Parameters[PLCamera.PixelFormat].IsWritable)
+                    _camera.Parameters[PLCamera.PixelFormat].SetValue(settings.PixelFormat);
             }
             catch (Exception ex)
             {
@@ -212,6 +227,9 @@ namespace PaperAngleMonitor.Services
                     _camera.Close();
                     _camera.Dispose();
                     _camera = null;
+
+                    // Сбрасываем кэш форматов
+                    _cachedPixelFormats = null;
                 }
                 _logger.LogInformation("Basler camera disconnected");
             }
@@ -233,26 +251,50 @@ namespace PaperAngleMonitor.Services
 
             try
             {
-                // Останавливаем grabber если уже запущен
+                // Сначала останавливаем граббер, если он работал
                 if (_camera.StreamGrabber.IsGrabbing)
                 {
                     _camera.StreamGrabber.Stop();
                 }
 
-                // Сбрасываем счетчики FPS
+                // КРИТИЧЕСКИ ВАЖНО: Если камера закрыта, параметры не запишутся.
+                if (!_camera.IsOpen)
+                {
+                    _camera.Open();
+                }
+
                 _frameCount = 0;
                 _lastFpsUpdate = DateTime.Now;
                 _currentFps = 0;
 
-                // Подписываемся на события
+                // 1. Оптимизация размера сетевого пакета под Jumbo Frames (1500)
+                if (_camera.Parameters[PLCamera.GevSCPSPacketSize].IsWritable)
+                {
+                    _camera.Parameters[PLCamera.GevSCPSPacketSize].SetValue(1500);
+                }
+
+                // 2. Оптимизация задержки между пакетами для разгрузки сетевой карты
+                if (_camera.Parameters[PLCamera.GevSCPD].IsWritable)
+                {
+                    _camera.Parameters[PLCamera.GevSCPD].SetValue(10);
+                }
+
+                // 3. Выделение 50 буферов в оперативной памяти (сглаживание пиков нагрузки)
+                if (_camera.Parameters[PLCameraInstance.MaxNumBuffer].IsWritable)
+                {
+                    _camera.Parameters[PLCameraInstance.MaxNumBuffer].SetValue(50);
+                }
+
+                // Переподписываемся на события ПОСЛЕ настройки параметров
                 _camera.StreamGrabber.ImageGrabbed -= OnImageGrabbed;
                 _camera.StreamGrabber.ImageGrabbed += OnImageGrabbed;
 
-                // Запускаем захват
+                // 4. Запуск трансляции с изменением стратегии на OneByOne
+                // Это уберет внутренние пропуски пакетов внутри самого pylon loop
                 _camera.StreamGrabber.Start(GrabStrategy.OneByOne, GrabLoop.ProvidedByStreamGrabber);
                 _isCapturing = true;
 
-                _logger.LogInformation("Capture started successfully");
+                _logger.LogInformation("Capture started successfully with optimized network parameters");
             }
             catch (Exception ex)
             {
@@ -386,44 +428,54 @@ namespace PaperAngleMonitor.Services
             }
         }
 
+        /// <summary>
+        /// Возвращает кэшированный список поддерживаемых форматов пикселей и текущий формат.
+        /// Кэш заполняется при подключении камеры, поэтому вызов безопасен во время захвата.
+        /// </summary>
         public (List<string> SupportedFormats, string CurrentFormat) GetSupportedPixelFormats()
         {
             if (_camera == null || !_camera.IsConnected)
                 throw new InvalidOperationException("Camera not connected");
 
-            try
-            {
-                var param = _camera.Parameters[PLCamera.PixelFormat];
-                // Получаем все возможные значения (это может быть массив строк или объектов)
-                var allValues = param.GetAllValues(); // предположим, возвращает object[]
-                var supported = new List<string>();
-                var currentValue = param.GetValue(); // запоминаем текущий формат
+            if (_cachedPixelFormats == null)
+                throw new InvalidOperationException("Pixel formats cache not initialized. Call ConnectAsync first.");
 
-                foreach (var value in allValues)
+            var currentFormat = _camera.Parameters[PLCamera.PixelFormat].GetValue().ToString();
+            return (_cachedPixelFormats, currentFormat);
+        }
+
+        /// <summary>
+        /// Внутренний метод, выполняющий перебор всех возможных значений PixelFormat
+        /// и возвращающий список действительно поддерживаемых форматов.
+        /// Вызывается только при подключении камеры, чтобы избежать ошибок во время захвата.
+        /// </summary>
+        private List<string> GetSupportedPixelFormatsInternal()
+        {
+            if (_camera == null || !_camera.IsConnected)
+                throw new InvalidOperationException("Camera not connected");
+
+            var param = _camera.Parameters[PLCamera.PixelFormat];
+            var allValues = param.GetAllValues();
+            var supported = new List<string>();
+            var currentValue = param.GetValue();
+
+            foreach (var value in allValues)
+            {
+                try
                 {
-                    try
-                    {
-                        // Пытаемся установить значение
-                        param.SetValue(value);
-                        // Если исключения не было – формат поддерживается
-                        supported.Add(value.ToString());
-                    }
-                    catch
-                    {
-                        // Если возникла ошибка – пропускаем
-                    }
+                    param.SetValue(value);
+                    supported.Add(value.ToString());
                 }
-
-                // Возвращаем исходный формат
-                param.SetValue(currentValue);
-
-                return (supported, currentValue.ToString());
+                catch
+                {
+                    // Формат не поддерживается при текущей конфигурации
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to get supported pixel formats");
-                throw;
-            }
+
+            // Восстанавливаем исходный формат
+            param.SetValue(currentValue);
+
+            return supported;
         }
 
         public (double Min, double Max, double Current) GetExposureRange()
