@@ -85,16 +85,22 @@ namespace PaperAngleMonitor.Services
             try
             {
                 // Сбрасываем настройки к default
-                _camera.Parameters[PLCamera.UserSetSelector].SetValue(PLCamera.UserSetSelector.Default);
-                _camera.Parameters[PLCamera.UserSetLoad].Execute();
+                //_camera.Parameters[PLCamera.UserSetSelector].SetValue(PLCamera.UserSetSelector.Default);
+                //_camera.Parameters[PLCamera.UserSetLoad].Execute();
 
                 // Базовые настройки
-                _camera.Parameters[PLCamera.AcquisitionMode].SetValue(PLCamera.AcquisitionMode.Continuous);
+                //_camera.Parameters[PLCamera.AcquisitionMode].SetValue(PLCamera.AcquisitionMode.Continuous);
+
 
                 // Автоматические настройки для начала
-                _camera.Parameters[PLCamera.ExposureAuto].SetValue(PLCamera.ExposureAuto.Once);
-                _camera.Parameters[PLCamera.GainAuto].SetValue(PLCamera.GainAuto.Once);
-                _camera.Parameters[PLCamera.BalanceWhiteAuto].SetValue(PLCamera.BalanceWhiteAuto.Once);
+                //падает fps при больших значениях
+                //_camera.Parameters[PLCamera.ExposureAuto].SetValue(PLCamera.ExposureAuto.Once);
+                //При таких настройках нормально работает
+                _camera.Parameters[PLCamera.ExposureAuto].SetValue(PLCamera.ExposureAuto.Off);
+                _camera.Parameters[PLCamera.ExposureTimeAbs].SetValue(16000.0);
+
+                _camera.Parameters[PLCamera.GainAuto].SetValue(PLCamera.GainAuto.Continuous);
+                _camera.Parameters[PLCamera.GainSelector].SetValue(PLCamera.GainSelector.All);
 
                 // Формат пикселей
                 _camera.Parameters[PLCamera.PixelFormat].SetValue(PLCamera.PixelFormat.Mono8);
@@ -109,6 +115,8 @@ namespace PaperAngleMonitor.Services
                 _logger.LogInformation($"Width: {_camera.Parameters[PLCamera.Width].GetValue()}");
                 _logger.LogInformation($"Height: {_camera.Parameters[PLCamera.Height].GetValue()}");
                 _logger.LogInformation($"PixelFormat: {_camera.Parameters[PLCamera.PixelFormat].GetValue()}");
+
+                // _camera.Parameters[PLCamera.BalanceWhiteAuto].SetValue(PLCamera.BalanceWhiteAuto.Once);
             }
             catch (Exception ex)
             {

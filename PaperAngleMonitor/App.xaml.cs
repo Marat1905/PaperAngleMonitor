@@ -31,7 +31,6 @@ namespace PaperAngleMonitor
                         configure.AddDebug();
                     });
 
-                    // Read BaslerSettings from configuration
                     services.AddSingleton(provider =>
                     {
                         var config = provider.GetRequiredService<IConfiguration>();
@@ -44,8 +43,11 @@ namespace PaperAngleMonitor
                     services.AddSingleton<System.Windows.Threading.Dispatcher>(provider =>
                        Application.Current.Dispatcher);
                     services.AddTransient<MainViewModel>();
-                    //services.AddTransient<SettingsViewModel>();
                     services.AddTransient<MainWindow>();
+
+                    // Регистрация для окна настроек
+                    services.AddTransient<SettingsViewModel>();
+                    services.AddTransient<SettingsWindow>();
                 })
                 .Build();
 

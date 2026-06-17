@@ -34,26 +34,26 @@
 
             <!-- Видеопоток -->
             <Border Grid.Column="0" 
-         BorderBrush="#FFCCCCCC" 
-         BorderThickness="1" 
-         Margin="10"
-         Background="#FF2D2D30">
+                    BorderBrush="#FFCCCCCC" 
+                    BorderThickness="1" 
+                    Margin="10"
+                    Background="#FF2D2D30">
                 <Grid>
                     <Image Source="{Binding CurrentFrame}" 
-                Stretch="Uniform"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"/>
+                           Stretch="Uniform"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
 
                     <!-- Overlay when no video -->
                     <Border Background="#80000000" 
-                 Visibility="{Binding CurrentFrame, Converter={StaticResource NullToVisibilityConverter}}"
-                 HorizontalAlignment="Stretch"
-                 VerticalAlignment="Stretch">
+                            Visibility="{Binding CurrentFrame, Converter={StaticResource NullToVisibilityConverter}}"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch">
                         <TextBlock Text="No video signal" 
-                        Foreground="White"
-                        FontSize="16"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"/>
+                                   Foreground="White"
+                                   FontSize="16"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
                     </Border>
                 </Grid>
             </Border>
@@ -65,26 +65,40 @@
                     <GroupBox Header="Подключение" Margin="0,0,0,10">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <Button Content="Старт" 
-                                Command="{Binding StartMonitoringCommand}"
-                                Background="#FF4CAF50"
-                                Foreground="White"
-                                IsEnabled="{Binding IsMonitoring, Converter={StaticResource BooleanToNotConverter}}"/>
+                                    Command="{Binding StartMonitoringCommand}"
+                                    Background="#FF4CAF50"
+                                    Foreground="White"
+                                    IsEnabled="{Binding IsMonitoring, Converter={StaticResource BooleanToNotConverter}}"/>
 
                             <Button Content="Стоп" 
-                                Command="{Binding StopMonitoringCommand}"
-                                Background="#FFF44336"
-                                Foreground="White"
-                                IsEnabled="{Binding IsMonitoring}"/>
+                                    Command="{Binding StopMonitoringCommand}"
+                                    Background="#FFF44336"
+                                    Foreground="White"
+                                    IsEnabled="{Binding IsMonitoring}"/>
+
+                            <!-- Кнопка настроек -->
+                            <Button Content="Настройки" 
+                                    Command="{Binding OpenSettingsCommand}"
+                                    Background="#FF2196F3"
+                                    Foreground="White"
+                                    Margin="10,0,0,0"/>
                         </StackPanel>
                     </GroupBox>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
 
-        <!-- Нижняя строка статуса -->
+        <!-- Нижняя строка статуса (добавлен индикатор FPS) -->
         <StatusBar Grid.Row="2" Margin="0,10,0,0">
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusBarText}"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <TextBlock>
+                    <Run Text="FPS:"/>
+                    <Run Text="{Binding CurrentFps, StringFormat={}{0:F1}}"/>
+                </TextBlock>
             </StatusBarItem>
         </StatusBar>
     </Grid>

@@ -1,11 +1,14 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using OpenCvSharp;
 using OpenCvSharp.WpfExtensions;
 using PaperAngleMonitor.Commands;
 using PaperAngleMonitor.Converters;
 using PaperAngleMonitor.Services;
+using PaperAngleMonitor.Views;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -17,6 +20,7 @@ namespace PaperAngleMonitor.ViewModels
         private readonly ILogger<MainViewModel> _logger;
         private readonly IVideoService _videoService;
         private readonly Dispatcher _dispatcher;
+        private readonly IServiceProvider _serviceProvider;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -66,11 +70,14 @@ namespace PaperAngleMonitor.ViewModels
 
         public ICommand StartMonitoringCommand { get; }
         public ICommand StopMonitoringCommand { get; }
-        public MainViewModel(ILogger<MainViewModel> logger, IVideoService videoService, Dispatcher dispatcher)
+        public ICommand OpenSettingsCommand { get; }
+
+        public MainViewModel(ILogger<MainViewModel> logger, IVideoService videoService, Dispatcher dispatcher, IServiceProvider serviceProvider)
         {
             _logger = logger;
             _videoService = videoService;
             _dispatcher = dispatcher;
+            _serviceProvider = serviceProvider;
 
             StartMonitoringCommand = new RelayCommand(async _ => await StartMonitoringAsync(),
                _ => !IsMonitoring);
@@ -78,7 +85,8 @@ namespace PaperAngleMonitor.ViewModels
             StopMonitoringCommand = new RelayCommand(async _ => await StopMonitoringAsync(),
                 _ => IsMonitoring);
 
-            // Subscribe to events
+            OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
+
             _videoService.FrameReady += OnFrameReady;
         }
 
@@ -86,7 +94,6 @@ namespace PaperAngleMonitor.ViewModels
         {
             try
             {
-
                 using (var frameClone = frame.Clone())
                 {
                     await _dispatcher.InvokeAsync(() =>
@@ -103,9 +110,7 @@ namespace PaperAngleMonitor.ViewModels
                         }
                         CurrentFps = _videoService.CurrentFps;
                         CurrentFrame = bitmapSource;
-                        //_logger.LogInformation($"Видео передается в потоке: {Thread.CurrentThread.ManagedThreadId}");
                     });
-
                 }
             }
             catch (ObjectDisposedException ex)
@@ -120,22 +125,18 @@ namespace PaperAngleMonitor.ViewModels
 
         private async Task StartMonitoringAsync()
         {
-
             try
             {
-
-                // Подключаемся к видео источнику
                 bool connected = await _videoService.ConnectAsync();
                 if (!connected)
                 {
-                    StatusBarText = $"Failed to connect to Basler";
+                    StatusBarText = "Failed to connect to Basler";
                     return;
                 }
 
                 await _videoService.StartCaptureAsync();
                 IsMonitoring = true;
-
-                StatusBarText = $"Monitoring started using Basler";
+                StatusBarText = "Monitoring started using Basler";
                 _logger.LogInformation("Monitoring started using Basler");
             }
             catch (Exception ex)
@@ -149,7 +150,6 @@ namespace PaperAngleMonitor.ViewModels
         {
             try
             {
-
                 await _videoService.StopCaptureAsync();
                 await _videoService.DisconnectAsync();
                 IsMonitoring = false;
@@ -163,7 +163,20 @@ namespace PaperAngleMonitor.ViewModels
             }
         }
 
-
+        private void OpenSettings()
+        {
+            try
+            {
+                var settingsWindow = _serviceProvider.GetRequiredService<SettingsWindow>();
+                settingsWindow.Owner = Application.Current.MainWindow;
+                settingsWindow.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to open settings window");
+                StatusBarText = "Ошибка открытия настроек";
+            }
+        }
 
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {

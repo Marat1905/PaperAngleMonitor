@@ -1,0 +1,91 @@
+﻿<Window x:Class="PaperAngleMonitor.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Настройки камеры" Height="600" Width="500"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10">
+            <StackPanel>
+                <!-- Размер изображения -->
+                <GroupBox Header="Размер изображения" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="Ширина" />
+                        <Slider Minimum="{Binding MinWidth}" Maximum="{Binding MaxWidth}" 
+                                Value="{Binding Width}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                        <TextBox Text="{Binding Width, UpdateSourceTrigger=PropertyChanged}" 
+                                 HorizontalAlignment="Left" Width="60"/>
+
+                        <TextBlock Text="Высота" Margin="0,10,0,0"/>
+                        <Slider Minimum="{Binding MinHeight}" Maximum="{Binding MaxHeight}" 
+                                Value="{Binding Height}" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                        <TextBox Text="{Binding Height, UpdateSourceTrigger=PropertyChanged}" 
+                                 HorizontalAlignment="Left" Width="60"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Формат пикселей -->
+                <GroupBox Header="Формат пикселей" Margin="0,0,0,10">
+                    <ComboBox ItemsSource="{Binding PixelFormats}" 
+                              SelectedItem="{Binding PixelFormat}" />
+                </GroupBox>
+
+                <!-- Экспозиция -->
+                <GroupBox Header="Экспозиция" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="Автоматический режим" />
+                        <ComboBox ItemsSource="{Binding ExposureAutoModes}" 
+                                  SelectedItem="{Binding ExposureAuto}" />
+                        <TextBlock Text="Время экспозиции (мкс)" Margin="0,10,0,0"/>
+                        <Slider Minimum="{Binding MinExposure}" Maximum="{Binding MaxExposure}" 
+                                Value="{Binding ExposureTime}" />
+                        <TextBox Text="{Binding ExposureTime, UpdateSourceTrigger=PropertyChanged}" 
+                                 HorizontalAlignment="Left" Width="80"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Усиление -->
+                <GroupBox Header="Усиление" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="Автоматический режим" />
+                        <ComboBox ItemsSource="{Binding GainAutoModes}" 
+                                  SelectedItem="{Binding GainAuto}" />
+                        <TextBlock Text="Усиление (raw)" Margin="0,10,0,0"/>
+                        <Slider Minimum="{Binding MinGain}" Maximum="{Binding MaxGain}" 
+                                Value="{Binding Gain}" />
+                        <TextBox Text="{Binding Gain, UpdateSourceTrigger=PropertyChanged}" 
+                                 HorizontalAlignment="Left" Width="80"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- Частота кадров -->
+                <GroupBox Header="Частота кадров" Margin="0,0,0,10">
+                    <StackPanel>
+                        <CheckBox Content="Включить управление частотой кадров" 
+                                  IsChecked="{Binding AcquisitionFrameRateEnable}" />
+                        <TextBlock Text="Частота (кадров/сек)" Margin="0,10,0,0" 
+                                   IsEnabled="{Binding AcquisitionFrameRateEnable}"/>
+                        <Slider Minimum="{Binding MinFrameRate}" Maximum="{Binding MaxFrameRate}" 
+                                Value="{Binding AcquisitionFrameRate}" 
+                                IsEnabled="{Binding AcquisitionFrameRateEnable}"/>
+                        <TextBox Text="{Binding AcquisitionFrameRate, UpdateSourceTrigger=PropertyChanged}" 
+                                 HorizontalAlignment="Left" Width="80"
+                                 IsEnabled="{Binding AcquisitionFrameRateEnable}"/>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Сохранить" Command="{Binding SaveCommand}" 
+                    Width="100" Margin="0,0,10,0" Padding="5"/>
+            <Button Content="Отмена" Command="{Binding CancelCommand}" 
+                    Width="100" Padding="5"/>
+        </StackPanel>
+    </Grid>
+</Window>
